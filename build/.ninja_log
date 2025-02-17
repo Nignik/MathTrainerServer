@@ -1,0 +1,6 @@
+# ninja log v5
+26	2003	1739811038465422000	MathTrainerServer/CMakeFiles/MathTrainerServer.dir/src/ProblemGenerator.cpp.o	d093ceea5ece28bf
+16	3567	1739811040003221100	MathTrainerServer/CMakeFiles/MathTrainerServer.dir/src/Asio.cpp.o	938f0c6de0a9f4b0
+18	6429	1739811042843657400	MathTrainerServer/CMakeFiles/MathTrainerServer.dir/src/Game.cpp.o	695350f95830d5ac
+23	7126	1739811043536205600	MathTrainerServer/CMakeFiles/MathTrainerServer.dir/src/Player.cpp.o	c39435c547a5f0b3
+21	7511	1739811043919870400	MathTrainerServer/CMakeFiles/MathTrainerServer.dir/src/MathTrainerServer.cpp.o	a69925448740e502

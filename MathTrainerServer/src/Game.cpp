@@ -3,11 +3,7 @@
 Game::Game(GameData gameData)
 	: m_problemGenerator{gameData.minAddition, gameData.maxAddition, gameData.minMultiplication, gameData.maxMultiplication}
 {	
-	m_problems.reserve(100);
-	for (int i = 0; i < 100; i++)
-	{
-		m_problems.push_back(m_problemGenerator.GenerateProblem());
-	}
+	AppendProblems(100);
 }
 
 void Game::JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& name)
@@ -20,30 +16,47 @@ void Game::JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::str
 		m_playerNames[ws] = name;
 }
 
+void Game::QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws)
+{
+	if (m_players.contains(ws))
+		m_players.erase(ws);
+	if (m_playerNames.contains(ws))
+		m_playerNames.erase(ws);
+}
+
 bool Game::SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& answer)
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
 
 	// TODO: Generate new questions or something
-	if (answer == m_problems[m_players[ws]].answer)
+	auto player = m_players.find(ws);
+	assert(player != m_players.end());
+
+	if (answer == m_problems[player->second].answer)
 	{
-		m_players[ws]++;
-		if (m_players[ws] >= 100)
-			m_players[ws] = 99;
+		player->second++;
+		if (player->second >= m_problems.size())
+		{
+			AppendProblems(100);
+		}
+			
 		return true;
 	}
 	
 	return false;
 }
 
-std::string Game::GetQuestion(std::shared_ptr<websocket::stream<tcp::socket>> ws)
+std::string Game::GetQuestion(std::shared_ptr<websocket::stream<tcp::socket>> ws) const
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
 
-	return m_problems[m_players[ws]].question;
+	auto player = m_players.find(ws);
+	assert(player != m_players.end());
+
+	return m_problems[player->second].question;
 }
 
-json::object Game::GetLeaderboardMessage()
+json::object Game::GetLeaderboardMessage() const
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
 
@@ -54,7 +67,7 @@ json::object Game::GetLeaderboardMessage()
 	sortedPlayers.reserve(m_players.size());
 	for (auto& [key, val] : m_players)
 	{
-		sortedPlayers.emplace_back(val, m_playerNames[key]);
+		sortedPlayers.emplace_back(val, m_playerNames.find(key)->second);
 	}
 	std::sort(sortedPlayers.rbegin(), sortedPlayers.rend());
 
@@ -73,13 +86,25 @@ json::object Game::GetLeaderboardMessage()
 	return leaderboard;
 }
 
-std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws)
+std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
-	return m_playerNames[ws];
+	auto player = m_playerNames.find(ws);
+	assert(player != m_playerNames.end());
+	return player->second;
 }
 
-void Game::MessageAll(json::object& obj)
+std::string Game::GetID() const
+{
+	return m_ID;
+}
+
+int Game::GetNumberOfPlayers() const
+{
+	return m_players.size();
+}
+
+void Game::MessageAll(json::object& obj) const
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
 
@@ -88,5 +113,14 @@ void Game::MessageAll(json::object& obj)
 	for (auto& [ws, score] : m_players)
 	{
 		ws->write(msg);
+	}
+}
+
+void Game::AppendProblems(uint32_t amount)
+{
+	m_problems.reserve(m_problems.size() + amount);
+	for (int i = 0; i < 100; i++)
+	{
+		m_problems.push_back(m_problemGenerator.GenerateProblem());
 	}
 }

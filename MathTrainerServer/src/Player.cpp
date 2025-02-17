@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <utility>
+//#include <print>
 
 Player::Player(std::shared_ptr<websocket::stream<tcp::socket>> ws)
 	: m_ws(ws)
@@ -15,93 +16,67 @@ Player::Player()
 
 void Player::HandleSession()
 {
+	using HandlerFunc = std::function<void(json::object&)>;
+	std::unordered_map<std::string, HandlerFunc> startHandlers = {
+		{"login", [this](json::object& obj) { Login(obj); }},
+		{"joinGame", [this](json::object& obj) { JoinGame(obj); }},
+		{"createGame", [this](json::object& obj) { CreateGame(obj); }},
+	};
+	std::unordered_map<std::string, HandlerFunc> gameHandlers = {
+		{"questionRequest", [this](json::object& obj) { SendQuestion(obj); }},
+		{"playerAnswer", [this](json::object& obj) { CheckAnswer(obj); }},
+	};
+
 	for (;;)
 	{
 		beast::flat_buffer buffer;
 		m_ws->read(buffer);
 		std::string message = beast::buffers_to_string(buffer.data());
 
-		boost::system::error_code ec;
-		json::value jv = json::parse(message, ec);
-		if (ec)
-		{
-			std::cerr << "Error parsing JSON: " << ec.message() << '\n';
+		auto parsedMessage = ParseJson(message);
+		if (!parsedMessage)
 			continue;
-		}
 
-		if (!jv.is_object())
-		{
-			std::cerr << "Parsed JSON is not an object.\n";
-			continue;
-		}
+		auto& messageObj = parsedMessage.value();
 
-		json::object obj = jv.as_object();
-		if (!obj.contains("type"))
-		{
-			std::cerr << "Received message does't have type specified.\n";
-			continue;
-		}
-
-		if (obj["type"] == "login")
-		{
-			try
-			{
-				Login(obj);
-			}
-			catch (std::exception ex)
-			{
-				std::cerr << "Error logging in: " << ex.what() << '\n';
-			}
-		}
-		else if (obj["type"] == "joinGame")
-		{
-			try
-			{
-				JoinGame(obj);
-			}
-			catch (std::exception ex)
-			{
-				std::cerr << "Error joining game: " << ex.what() << '\n';
-			}
-		}
-		else if (obj["type"] == "createGame")
-		{
-			try
-			{	
-				CreateGame(obj);
-			}
-			catch (std::exception ex)
-			{
-				std::cerr << "Error creating game: " << ex.what() << '\n';
-			}
-		}
-		else if (obj["type"] == "questionRequest")
-		{
-			try
-			{
-				SendQuestion(obj);
-			}
-			catch (std::exception ex)
-			{
-				std::cerr << "Error sending question: " << ex.what() << '\n';
-			}
-		}
-		else if (obj["type"] == "playerAnswer")
-		{
-			try
-			{
-				CheckAnswer(obj);
-			}
-			catch (std::exception ex)
-			{
-				std::cerr << "Error checking player answer: " << ex.what() << '\n';
-			}
-		}
-		else
-		{
-			std::cerr << "Message contains invalid type\n";
-		}
+		std::string type = try_value_to<std::string>(messageObj["type"]).value();
+		auto handler = startHandlers.find(type);
+		if (handler != startHandlers.end())
+			handler->second(messageObj);
+		
+		handler = gameHandlers.find(type);
+		if (handler != gameHandlers.end() && m_game)
+			handler->second(messageObj);
 	}
+}
+
+std::optional<json::object> Player::ParseJson(const std::string& message)
+{
+	boost::system::error_code ec;
+	json::value jv = json::parse(message, ec);
+	if (ec)
+	{
+		std::cerr << "Error parsing JSON: " << ec.message() << '\n';
+		return std::nullopt;
+	}
+
+	if (!jv.is_object())
+	{
+		std::cerr << "Parsed JSON is not an object.\n";
+		return std::nullopt;
+	}
+
+	return jv.as_object();
+}
+
+bool Player::IsInGame()
+{
+	return m_game == nullptr ? false : true;
+}
+
+std::string Player::GetGameID()
+{
+	return m_game->GetID();
 }
 
 void Player::Login(boost::json::object& obj)
@@ -121,7 +96,9 @@ void Player::JoinGame(boost::json::object& obj)
 	{
 		msg["type"] = "error";
 		msg["message"] = "Game id doesn't exist";
-		m_ws->write(asio::buffer("The game you tried to join doesn't exist."));
+		m_ws->write(asio::buffer(json::serialize(msg)));
+		//std::print("Player: {} tried to join a game that doesn't exist", m_name);
+		std::cout << "Player: " << m_name << " tried to join a game that doesn't exist\n";
 		return;
 	}
 	m_game = gameManager.JoinGame(gameID);
@@ -183,8 +160,7 @@ void Player::CheckAnswer(boost::json::object& obj)
 		msg["type"] = "answerWasCorrect";
 		m_ws->write(asio::buffer(json::serialize(msg)));
 		
-		auto leaderboard = m_game->GetLeaderboardMessage();
-		m_game->MessageAll(leaderboard);
+		SendLeaderboard();
 	}
 }
 
@@ -197,6 +173,6 @@ void Player::SendJoinGameMessage()
 
 void Player::SendLeaderboard()
 {
-	json::object msg;
-	m_ws->write(asio::buffer(json::serialize(m_game->GetLeaderboardMessage())));
+	auto leaderboard = m_game->GetLeaderboardMessage();
+	m_game->MessageAll(leaderboard);
 }

@@ -41,6 +41,19 @@ public:
 		return m_games[gameID];
 	}
 
+	void QuitGame(std::string& gameID, std::shared_ptr<websocket::stream<tcp::socket>> ws)
+	{
+		if (!m_games.contains(gameID))
+			return;
+
+		m_games[gameID]->QuitGame(ws);
+		if (m_games[gameID]->GetNumberOfPlayers() == 0)
+		{
+			m_games.erase(gameID);
+			std::cout << "Game: " << gameID << "has been closed\n";
+		}
+	}
+
 	bool DoesGameExist(std::string& gameID)
 	{
 		return m_games.contains(gameID);

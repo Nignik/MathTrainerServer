@@ -1,0 +1,5 @@
+/mnt/c/dev/web/MathTrainerServer/build/CMakeFiles/edit_cache.dir
+/mnt/c/dev/web/MathTrainerServer/build/CMakeFiles/rebuild_cache.dir
+/mnt/c/dev/web/MathTrainerServer/build/MathTrainerServer/CMakeFiles/MathTrainerServer.dir
+/mnt/c/dev/web/MathTrainerServer/build/MathTrainerServer/CMakeFiles/edit_cache.dir
+/mnt/c/dev/web/MathTrainerServer/build/MathTrainerServer/CMakeFiles/rebuild_cache.dir

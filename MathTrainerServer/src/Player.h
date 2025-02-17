@@ -14,6 +14,9 @@ public:
 	Player(std::shared_ptr<websocket::stream<tcp::socket>> ws);
 
 	void HandleSession();
+	std::optional<json::object> ParseJson(const std::string& message);
+	bool IsInGame();
+	std::string GetGameID();
 
 private:
 	void Login(boost::json::object& obj);

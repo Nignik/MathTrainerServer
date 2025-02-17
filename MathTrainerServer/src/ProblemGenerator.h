@@ -3,7 +3,7 @@
 #include "Problem.h"
 
 #include <random>
-#include <format> 
+#include <format>
 
 class ProblemGenerator
 {

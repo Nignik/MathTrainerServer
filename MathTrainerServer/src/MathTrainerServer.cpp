@@ -35,6 +35,15 @@ void handle_session(tcp::socket socket)
 
 	{
 		std::scoped_lock<std::mutex> lock(players_mutex);
+
+		auto& gameManager = GameManager::GetInstance();
+
+		if (players[ws]->IsInGame())
+		{
+			std::string gameID = players[ws]->GetGameID();
+			gameManager.QuitGame(gameID, ws);
+		}
+		
 		players.erase(ws);
 	}
 }
