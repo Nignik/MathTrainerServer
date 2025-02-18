@@ -17,10 +17,12 @@ public:
 	std::optional<json::object> ParseJson(const std::string& message);
 	bool IsInGame();
 	std::string GetGameID();
+	std::string GetName() const;
 
 private:
 	void Login(boost::json::object& obj);
 	void JoinGame(boost::json::object& obj);
+	void LeaveGame();
 	void CreateGame(boost::json::object& obj);
 	void SendQuestion(boost::json::object& obj);
 	void CheckAnswer(boost::json::object& obj);

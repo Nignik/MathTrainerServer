@@ -1,7 +1,10 @@
 #include "Game.h"
 
-Game::Game(GameData gameData)
-	: m_problemGenerator{gameData.minAddition, gameData.maxAddition, gameData.minMultiplication, gameData.maxMultiplication}
+#include <iostream>
+
+Game::Game(std::string& gameID, GameData gameData)
+	: m_ID(gameID),
+	m_problemGenerator(gameData.minAddition, gameData.maxAddition, gameData.minMultiplication, gameData.maxMultiplication)
 {	
 	AppendProblems(100);
 }
@@ -18,10 +21,19 @@ void Game::JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::str
 
 void Game::QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws)
 {
-	if (m_players.contains(ws))
-		m_players.erase(ws);
-	if (m_playerNames.contains(ws))
-		m_playerNames.erase(ws);
+	{
+		std::scoped_lock<std::mutex> lock(m_mutex);
+
+		if (m_players.contains(ws))
+			m_players.erase(ws);
+
+		std::cout << "Player " << m_playerNames[ws] << ": left the game\n";
+		if (m_playerNames.contains(ws))
+			m_playerNames.erase(ws);
+	}
+	
+	auto leaderboard = GetLeaderboardMessage();
+	MessageAll(leaderboard);
 }
 
 bool Game::SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& answer)
@@ -89,6 +101,7 @@ json::object Game::GetLeaderboardMessage() const
 std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
+
 	auto player = m_playerNames.find(ws);
 	assert(player != m_playerNames.end());
 	return player->second;

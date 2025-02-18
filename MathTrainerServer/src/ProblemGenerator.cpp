@@ -34,6 +34,9 @@ Problem ProblemGenerator::GenerateSubtractionProblem()
 {
 	int num1 = m_additionDistrib(m_gen);
 	int num2 = m_additionDistrib(m_gen);
+	if (num2 > num1)
+		std::swap(num1, num2);
+
 	std::string question = std::format("{} - {}", num1, num2);
 	std::string answer = std::to_string(num1 - num2);
 	return { question, answer };
@@ -50,8 +53,8 @@ Problem ProblemGenerator::GenerateMultiplicationProblem()
 
 Problem ProblemGenerator::GenerateDivisionProblem()
 {
-	int num1 = m_additionDistrib(m_gen);
-	int num2 = m_additionDistrib(m_gen);
+	int num1 = m_multiplicationDistrib(m_gen);
+	int num2 = m_multiplicationDistrib(m_gen);
 	num1 *= num2;
 	std::string question = std::format("{} / {}", num1, num2);
 	std::string answer = std::to_string(num1 / num2);

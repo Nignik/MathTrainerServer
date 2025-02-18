@@ -24,7 +24,7 @@ public:
 			return nullptr;
 		}
 
-		m_games[gameID] = std::make_shared<Game>(gameData);
+		m_games[gameID] = std::make_shared<Game>(gameID, gameData);
 		return m_games[gameID];
 	}
 

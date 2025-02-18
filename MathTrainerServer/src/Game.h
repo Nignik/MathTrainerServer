@@ -21,7 +21,7 @@ struct GameData
 class Game
 {
 public:
-	Game(GameData gameData);
+	Game(std::string& gameID, GameData gameData);
 
 	void JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& name);
 	void QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws);
@@ -42,5 +42,5 @@ private:
 	std::vector<Problem> m_problems{};
 	std::unordered_map<std::shared_ptr<websocket::stream<tcp::socket>>, int> m_players{}; // maps players websocket to problem index
 	std::unordered_map<std::shared_ptr<websocket::stream<tcp::socket>>, std::string> m_playerNames{};
-	int m_anonID = 0;
+	uint32_t m_anonID = 0;
 };

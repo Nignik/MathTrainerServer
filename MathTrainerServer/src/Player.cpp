@@ -4,6 +4,19 @@
 #include <utility>
 //#include <print>
 
+/*
+	client -> server: player logs in
+	client -> server: player joins or creates game
+	server -> client: player joined the game
+	server -> client: game leaderboard
+	loops {
+		client -> server: request question
+		server -> client: question
+		client -> server: answer
+		server -> client: answer correct
+	}
+*/
+
 Player::Player(std::shared_ptr<websocket::stream<tcp::socket>> ws)
 	: m_ws(ws)
 {
@@ -25,6 +38,7 @@ void Player::HandleSession()
 	std::unordered_map<std::string, HandlerFunc> gameHandlers = {
 		{"questionRequest", [this](json::object& obj) { SendQuestion(obj); }},
 		{"playerAnswer", [this](json::object& obj) { CheckAnswer(obj); }},
+		{"leaveGame", [this](json::object& obj) { LeaveGame(); }},
 	};
 
 	for (;;)
@@ -79,6 +93,11 @@ std::string Player::GetGameID()
 	return m_game->GetID();
 }
 
+std::string Player::GetName() const
+{
+	return m_name;
+}
+
 void Player::Login(boost::json::object& obj)
 {
 	m_name = try_value_to<std::string>(obj["username"]).value();
@@ -107,6 +126,14 @@ void Player::JoinGame(boost::json::object& obj)
 	std::cout << m_name << " has joined the game.\n";
 
 	SendLeaderboard();
+}
+
+void Player::LeaveGame()
+{
+	auto& gameManager = GameManager::GetInstance();
+
+	auto gameID = m_game->GetID();
+	gameManager.QuitGame(gameID, m_ws);
 }
 
 void Player::CreateGame(boost::json::object& obj)
@@ -149,6 +176,8 @@ void Player::SendQuestion(boost::json::object& obj)
 	msg["type"] = "question";
 	msg["question"] = m_game->GetQuestion(m_ws);
 	m_ws->write(asio::buffer(json::serialize(msg)));
+
+	std::cout << "Question has been sent to player: " << m_name << '\n';
 }
 
 void Player::CheckAnswer(boost::json::object& obj)
@@ -159,7 +188,8 @@ void Player::CheckAnswer(boost::json::object& obj)
 		json::object msg;
 		msg["type"] = "answerWasCorrect";
 		m_ws->write(asio::buffer(json::serialize(msg)));
-		
+		std::cout << "Player: " << m_name << " answer was correct\n";
+
 		SendLeaderboard();
 	}
 }
