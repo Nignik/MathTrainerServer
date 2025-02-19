@@ -5,19 +5,19 @@ ProblemGenerator::ProblemGenerator(int minAddition, int maxAddition, int minMult
 	m_additionDistrib{minAddition, maxAddition},
 	m_multiplicationDistrib{minMultiplication, maxMultiplication}
 {
-	
 }
 
 Problem ProblemGenerator::GenerateProblem()
 {
-	int problemType = m_problemDistrib(m_gen);
+	ProblemType problemType = static_cast<ProblemType>(m_problemDistrib(m_gen));
 	switch (problemType)
 	{
-		case 1: return GenerateAdditionProblem();
-		case 2: return GenerateSubtractionProblem();
-		case 3: return GenerateMultiplicationProblem();
-		case 4: return GenerateDivisionProblem();
+		case ProblemType::addition: return GenerateAdditionProblem();
+		case ProblemType::subtraction: return GenerateSubtractionProblem();
+		case ProblemType::multiplication: return GenerateMultiplicationProblem();
+		case ProblemType::division: return GenerateDivisionProblem();
 	}
+
 	return Problem("error", "error");
 }
 
@@ -25,8 +25,10 @@ Problem ProblemGenerator::GenerateAdditionProblem()
 {
 	int num1 = m_additionDistrib(m_gen);
 	int num2 = m_additionDistrib(m_gen);
+
 	std::string question = std::format("{} + {}", num1, num2);
 	std::string answer = std::to_string(num1 + num2);
+
 	return { question, answer };
 }
 
@@ -46,8 +48,10 @@ Problem ProblemGenerator::GenerateMultiplicationProblem()
 {
 	int num1 = m_multiplicationDistrib(m_gen);
 	int num2 = m_multiplicationDistrib(m_gen);
+
 	std::string question = std::format("{} x {}", num1, num2);
 	std::string answer = std::to_string(num1 * num2);
+
 	return { question, answer };
 }
 
@@ -56,8 +60,10 @@ Problem ProblemGenerator::GenerateDivisionProblem()
 	int num1 = m_multiplicationDistrib(m_gen);
 	int num2 = m_multiplicationDistrib(m_gen);
 	num1 *= num2;
+
 	std::string question = std::format("{} / {}", num1, num2);
 	std::string answer = std::to_string(num1 / num2);
+
 	return { question, answer };
 }
 

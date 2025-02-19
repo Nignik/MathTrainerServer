@@ -5,6 +5,11 @@
 #include <random>
 #include <format>
 
+enum class ProblemType
+{
+	addition, subtraction, multiplication, division
+};
+
 class ProblemGenerator
 {
 public:

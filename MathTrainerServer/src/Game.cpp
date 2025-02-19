@@ -36,6 +36,15 @@ void Game::QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws)
 	MessageAll(leaderboard);
 }
 
+std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const
+{
+	std::scoped_lock<std::mutex> lock(m_mutex);
+
+	auto player = m_playerNames.find(ws);
+	assert(player != m_playerNames.end());
+	return player->second;
+}
+
 bool Game::SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& answer)
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
@@ -98,23 +107,14 @@ json::object Game::GetLeaderboardMessage() const
 	return leaderboard;
 }
 
-std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const
+uint32_t Game::GetNumberOfPlayers() const
 {
-	std::scoped_lock<std::mutex> lock(m_mutex);
-
-	auto player = m_playerNames.find(ws);
-	assert(player != m_playerNames.end());
-	return player->second;
+	return m_players.size();
 }
 
 std::string Game::GetID() const
 {
 	return m_ID;
-}
-
-int Game::GetNumberOfPlayers() const
-{
-	return m_players.size();
 }
 
 void Game::MessageAll(json::object& obj) const

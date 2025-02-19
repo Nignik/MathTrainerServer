@@ -57,7 +57,7 @@ void Player::HandleSession()
 		auto handler = startHandlers.find(type);
 		if (handler != startHandlers.end())
 			handler->second(messageObj);
-		
+
 		handler = gameHandlers.find(type);
 		if (handler != gameHandlers.end() && m_game)
 			handler->second(messageObj);
@@ -83,12 +83,12 @@ std::optional<json::object> Player::ParseJson(const std::string& message)
 	return jv.as_object();
 }
 
-bool Player::IsInGame()
+bool Player::IsInGame() const
 {
 	return m_game == nullptr ? false : true;
 }
 
-std::string Player::GetGameID()
+std::string Player::GetGameID() const
 {
 	return m_game->GetID();
 }
@@ -102,38 +102,6 @@ void Player::Login(boost::json::object& obj)
 {
 	m_name = try_value_to<std::string>(obj["username"]).value();
 	std::cout << m_name << " has logged in.\n";
-}
-
-void Player::JoinGame(boost::json::object& obj)
-{
-	auto& gameManager = GameManager::GetInstance();
-
-	std::string gameID = try_value_to<std::string>(obj["gameID"]).value();
-
-	json::object msg;
-	if (!gameManager.DoesGameExist(gameID))
-	{
-		msg["type"] = "error";
-		msg["message"] = "Game id doesn't exist";
-		m_ws->write(asio::buffer(json::serialize(msg)));
-		//std::print("Player: {} tried to join a game that doesn't exist", m_name);
-		std::cout << "Player: " << m_name << " tried to join a game that doesn't exist\n";
-		return;
-	}
-	m_game = gameManager.JoinGame(gameID);
-	m_game->JoinGame(m_ws, m_name);
-	SendJoinGameMessage();
-	std::cout << m_name << " has joined the game.\n";
-
-	SendLeaderboard();
-}
-
-void Player::LeaveGame()
-{
-	auto& gameManager = GameManager::GetInstance();
-
-	auto gameID = m_game->GetID();
-	gameManager.QuitGame(gameID, m_ws);
 }
 
 void Player::CreateGame(boost::json::object& obj)
@@ -164,10 +132,57 @@ void Player::CreateGame(boost::json::object& obj)
 	std::cout << m_name << " has created a game.\n";
 
 	m_game->JoinGame(m_ws, m_name);
-	SendJoinGameMessage();
+	NotifyJoinedGame();
 	std::cout << m_name << " has joined a game.\n";
 
 	SendLeaderboard();
+}
+
+void Player::JoinGame(boost::json::object& obj)
+{
+	auto& gameManager = GameManager::GetInstance();
+
+	std::string gameID = try_value_to<std::string>(obj["gameID"]).value();
+
+	json::object msg;
+	if (!gameManager.DoesGameExist(gameID))
+	{
+		msg["type"] = "error";
+		msg["message"] = "Game id doesn't exist";
+		m_ws->write(asio::buffer(json::serialize(msg)));
+
+		std::cout << "Player: " << m_name << " tried to join a game that doesn't exist\n";
+		return;
+	}
+	m_game = gameManager.JoinGame(gameID);
+	m_game->JoinGame(m_ws, m_name);
+	NotifyJoinedGame();
+	std::cout << m_name << " has joined the game.\n";
+
+	SendLeaderboard();
+}
+
+void Player::LeaveGame()
+{
+	auto& gameManager = GameManager::GetInstance();
+
+	auto gameID = m_game->GetID();
+	gameManager.QuitGame(gameID, m_ws);
+}
+
+void Player::NotifyJoinedGame()
+{
+	json::object msg;
+	msg["type"] = "joinedGame";
+	m_ws->write(asio::buffer(json::serialize(msg)));
+}
+
+void Player::NotifyAnswerCorrect()
+{
+	json::object msg;
+	msg["type"] = "answerWasCorrect";
+	m_ws->write(asio::buffer(json::serialize(msg)));
+	std::cout << "Player: " << m_name << " answer was correct\n";
 }
 
 void Player::SendQuestion(boost::json::object& obj)
@@ -180,29 +195,18 @@ void Player::SendQuestion(boost::json::object& obj)
 	std::cout << "Question has been sent to player: " << m_name << '\n';
 }
 
+void Player::SendLeaderboard()
+{
+	auto leaderboard = m_game->GetLeaderboardMessage();
+	m_game->MessageAll(leaderboard);
+}
+
 void Player::CheckAnswer(boost::json::object& obj)
 {
 	std::string answer = try_value_to<std::string>(obj["answer"]).value();
 	if (m_game->SubmitAnswer(m_ws, answer))
 	{
-		json::object msg;
-		msg["type"] = "answerWasCorrect";
-		m_ws->write(asio::buffer(json::serialize(msg)));
-		std::cout << "Player: " << m_name << " answer was correct\n";
-
+		NotifyAnswerCorrect();
 		SendLeaderboard();
 	}
-}
-
-void Player::SendJoinGameMessage()
-{
-	json::object msg;
-	msg["type"] = "joinedGame";
-	m_ws->write(asio::buffer(json::serialize(msg)));
-}
-
-void Player::SendLeaderboard()
-{
-	auto leaderboard = m_game->GetLeaderboardMessage();
-	m_game->MessageAll(leaderboard);
 }

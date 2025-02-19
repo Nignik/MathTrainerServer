@@ -54,7 +54,7 @@ public:
 		}
 	}
 
-	bool DoesGameExist(std::string& gameID)
+	bool DoesGameExist(std::string& gameID) const
 	{
 		return m_games.contains(gameID);
 	}

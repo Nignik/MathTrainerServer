@@ -26,11 +26,13 @@ public:
 	void JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& name);
 	void QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws);
 	[[nodiscard]] bool SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& answer); // returns true if the answer was correct
+
+	std::string GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const;
 	std::string GetQuestion(std::shared_ptr<websocket::stream<tcp::socket>> ws) const;
 	json::object GetLeaderboardMessage() const;
-	std::string GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> ws) const;
+	uint32_t GetNumberOfPlayers() const;
 	std::string GetID() const;
-	int GetNumberOfPlayers() const;
+
 	void MessageAll(json::object& obj) const;
 
 private:
