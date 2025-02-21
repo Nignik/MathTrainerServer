@@ -12,11 +12,12 @@ Game::Game(std::string& gameID, GameData gameData)
 void Game::JoinGame(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& name)
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
-	m_players[ws] = 0;
+	m_players[ws].problemIdx = 0;
+	m_players[ws].start = std::chrono::steady_clock::now();
 	if (name == "anonymous")
-		m_playerNames[ws] = std::format("anonymous ({})", std::to_string(m_anonID++));
+		m_players[ws].name = std::format("anonymous ({})", std::to_string(m_anonID++));
 	else
-		m_playerNames[ws] = name;
+		m_players[ws].name = name;
 }
 
 void Game::QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws)
@@ -25,11 +26,10 @@ void Game::QuitGame(std::shared_ptr<websocket::stream<tcp::socket>> ws)
 		std::scoped_lock<std::mutex> lock(m_mutex);
 
 		if (m_players.contains(ws))
+		{
+			std::cout << "Player " << m_players[ws].name << ": left the game\n";
 			m_players.erase(ws);
-
-		std::cout << "Player " << m_playerNames[ws] << ": left the game\n";
-		if (m_playerNames.contains(ws))
-			m_playerNames.erase(ws);
+		}
 	}
 	
 	auto leaderboard = GetLeaderboardMessage();
@@ -40,9 +40,10 @@ std::string Game::GetPlayerName(std::shared_ptr<websocket::stream<tcp::socket>> 
 {
 	std::scoped_lock<std::mutex> lock(m_mutex);
 
-	auto player = m_playerNames.find(ws);
+	auto player = m_players.find(ws);
 	assert(player != m_playerNames.end());
-	return player->second;
+
+	return player->second.name;
 }
 
 bool Game::SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std::string& answer)
@@ -53,10 +54,13 @@ bool Game::SubmitAnswer(std::shared_ptr<websocket::stream<tcp::socket>> ws, std:
 	auto player = m_players.find(ws);
 	assert(player != m_players.end());
 
-	if (answer == m_problems[player->second].answer)
+	auto& playerData = player->second;
+	if (answer == m_problems[playerData.problemIdx].answer)
 	{
-		player->second++;
-		if (player->second >= m_problems.size())
+		playerData.problemIdx++;
+		auto now = std::chrono::steady_clock::now();
+		playerData.playTime = std::chrono::duration_cast<std::chrono::milliseconds>(now - playerData.start);
+		if (playerData.problemIdx >= m_problems.size())
 		{
 			AppendProblems(100);
 		}
@@ -74,7 +78,7 @@ std::string Game::GetQuestion(std::shared_ptr<websocket::stream<tcp::socket>> ws
 	auto player = m_players.find(ws);
 	assert(player != m_players.end());
 
-	return m_problems[player->second].question;
+	return m_problems[player->second.problemIdx].question;
 }
 
 json::object Game::GetLeaderboardMessage() const
@@ -84,21 +88,24 @@ json::object Game::GetLeaderboardMessage() const
 	json::object leaderboard;
 	leaderboard["type"] = "leaderboard";
 
-	std::vector<std::pair<int, std::string>> sortedPlayers;
+	std::vector<std::pair<uint32_t, PlayerData>> sortedPlayers;
 	sortedPlayers.reserve(m_players.size());
-	for (auto& [key, val] : m_players)
+	for (auto& [ws, player] : m_players)
 	{
-		sortedPlayers.emplace_back(val, m_playerNames.find(key)->second);
+		sortedPlayers.emplace_back(player.problemIdx, player);
 	}
-	std::sort(sortedPlayers.rbegin(), sortedPlayers.rend());
+	std::sort(sortedPlayers.rbegin(), sortedPlayers.rend(), [](const std::pair<uint32_t, PlayerData>& a, const std::pair<uint32_t, PlayerData>& b) {
+		return a.first < b.first ? true : false;
+	});
 
 	json::array arr;
 	arr.reserve(m_players.size());
-	for (auto& [score, name] : sortedPlayers)
+	for (auto& [score, player] : sortedPlayers)
 	{
 		json::object entry;
-		entry["name"] = name;
+		entry["name"] = player.name;
 		entry["score"] = score;
+		entry["playTime"] = player.playTime.count();
 		arr.push_back(std::move(entry));
 	}
 
@@ -123,7 +130,7 @@ void Game::MessageAll(json::object& obj) const
 
 	std::string jsonStr = json::serialize(obj);
 	auto msg = asio::buffer(jsonStr);
-	for (auto& [ws, score] : m_players)
+	for (auto& [ws, player] : m_players)
 	{
 		ws->write(msg);
 	}
